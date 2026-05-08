@@ -46,8 +46,12 @@ class GNN(nn.Module):
     def forward(self, graph_batch, edge_weight=None):
         # edge_index, x, edge_attr, y, batch, ptr = graph_batch
         graph_batch = graph_batch.to(self.device)
-        node_features_1 = F.relu(self.graph_conv_1(x=graph_batch.x, edge_index=graph_batch.edge_index, edge_weight=graph_batch.edge_attr))
-        node_features_2 = F.relu(self.graph_conv_2(x=node_features_1, edge_index=graph_batch.edge_index, edge_weight=graph_batch.edge_attr))        
+        # Modification note for federated extension: PyG GCNConv expects a 1-D
+        # edge_weight tensor; keeping this as a shape-only compatibility fix does
+        # not change the BrainIB V2 encoder architecture or objective.
+        edge_weight = graph_batch.edge_attr.view(-1) if graph_batch.edge_attr is not None else None
+        node_features_1 = F.relu(self.graph_conv_1(x=graph_batch.x, edge_index=graph_batch.edge_index, edge_weight=edge_weight))
+        node_features_2 = F.relu(self.graph_conv_2(x=node_features_1, edge_index=graph_batch.edge_index, edge_weight=edge_weight))
         node_features_ = F.dropout(node_features_2, p=0.5, training=self.training)
         normalized_node_features = F.normalize(node_features_, dim=1)
         
@@ -61,7 +65,9 @@ class GNN(nn.Module):
 
         normalized_node_features = sep_graph(normalized_node_features, graph_batch.ptr)
 
-        HH_tensor = torch.Tensor()
+        # Modification note for federated extension: initialize on the active
+        # device so the original BrainIB V2 pooling code works on both CPU and CUDA.
+        HH_tensor = torch.empty(0, device=self.device)
 
         for graph in normalized_node_features:
             graph = self.SOPOOL(graph)
