@@ -55,7 +55,10 @@ def renyi_entropy(x,sigma):
     alpha = 5
     k = calculate_gram_mat(x,sigma)
     k = k/torch.trace(k) 
-    eigv = torch.abs(torch.symeig(k, eigenvectors=True)[0])
+    # Modification note for federated extension: torch.symeig is removed in
+    # recent PyTorch versions; linalg.eigvalsh is the equivalent symmetric
+    # eigenvalue path and keeps the matrix-Renyi entropy calculation unchanged.
+    eigv = torch.abs(torch.linalg.eigvalsh(k))
     eig_pow = eigv**alpha
     entropy = (1/(1-alpha))*torch.log2(torch.sum(eig_pow))
     return entropy
@@ -70,7 +73,10 @@ def joint_entropy(x,y,s_x,s_y):
     y = calculate_gram_mat(y,s_y)
     k = torch.mul(x,y)
     k = k/torch.trace(k)
-    eigv = torch.abs(torch.symeig(k, eigenvectors=True)[0])
+    # Modification note for federated extension: torch.symeig is removed in
+    # recent PyTorch versions; linalg.eigvalsh is the equivalent symmetric
+    # eigenvalue path and keeps the matrix-Renyi entropy calculation unchanged.
+    eigv = torch.abs(torch.linalg.eigvalsh(k))
     eig_pow =  eigv**alpha
     entropy = (1/(1-alpha))*torch.log2(torch.sum(eig_pow))
 
